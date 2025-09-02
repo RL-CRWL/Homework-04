@@ -9,7 +9,6 @@ from collections import defaultdict
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation, PillowWriter
-import os
 from tqdm import tqdm
 
 class CliffWalkerAgent:
@@ -35,19 +34,19 @@ class CliffWalkerAgent:
         return int(np.argmax(self.q_values[state]))
     
     def update(self, observation, action, next_observation, next_action, reward, done):
-        # Calculate TD target
+        # TD target
         if done:
             td_target = reward
         else:
             td_target = reward + self.discount_factor * self.q_values[next_observation][next_action]
         
-        # Calculate TD error
+        # TD error
         td_error = td_target - self.q_values[observation][action]
         
-        # Update eligibility trace for current state-action pair
+        # updates eligibility trace for current state-action pair
         self.e_trace[observation][action] += 1
         
-        # Update all Q-values and decay eligibility traces
+        # updates all q-values and decay eligibility traces
         for state in list(self.e_trace.keys()):
             for a in range(self.env.action_space.n):
                 if self.e_trace[state][a] > 0:
@@ -60,7 +59,6 @@ class CliffWalkerAgent:
         self.e_trace.clear()
         
     def get_value_function(self):
-        """Get the value function V(s) = max_a Q(s, a)"""
         rows, cols = 4, 12  # CliffWalking grid dimensions
         value_func = np.zeros((rows, cols))
         
@@ -72,14 +70,14 @@ class CliffWalkerAgent:
         return value_func
 
 def create_animation(value_history, lambda_values, filename="value_function_evolution.gif"):
-    """Create an animation of value function heatmaps over episodes"""
+    # makes animation for runs
     fig, axes = plt.subplots(1, len(lambda_values), figsize=(15, 5))
     
-    # Find global min and max for consistent color scaling
+    # colour scaling
     vmin = min(np.min(values) for values_list in value_history.values() for values in values_list)
     vmax = max(np.max(values) for values_list in value_history.values() for values in values_list)
     
-    # Create initial plots
+    # plots
     ims = []
     for idx, lmbd in enumerate(lambda_values):
         im = axes[idx].imshow(value_history[lmbd][0], cmap='viridis', vmin=vmin, vmax=vmax)
@@ -88,24 +86,21 @@ def create_animation(value_history, lambda_values, filename="value_function_evol
         axes[idx].set_ylabel("Row")
         ims.append(im)
         
-        # Add colorbar
         plt.colorbar(im, ax=axes[idx])
     
     fig.suptitle("Value Function Evolution (V(s) = max_a Q(s, a))")
     plt.tight_layout()
     
-    # Animation update function
     def update(frame):
         for idx, lmbd in enumerate(lambda_values):
             ims[idx].set_array(value_history[lmbd][frame])
             axes[idx].set_title(f"λ = {lmbd} - Episode {frame+1}")
         return ims
     
-    # Create animation with Pillow writer (for GIF)
     ani = FuncAnimation(fig, update, frames=len(value_history[lambda_values[0]]), 
                         interval=200, blit=True)
     
-    # Save animation as GIF
+    # save gif
     ani.save(filename, writer=PillowWriter(fps=5), dpi=100)
     plt.close()
     print(f"Animation saved as {filename}")
@@ -116,13 +111,13 @@ def main():
     lambda_values = [0.0, 0.3, 0.5]
     env = gym.make("CliffWalking-v0")
 
-    # Store returns for each lambda, run, and episode
+    # stores returns for each lambda, run, and episode
     all_returns = {lmbd: np.zeros((num_runs, num_episodes)) for lmbd in lambda_values}
     
-    # For animation: store value function history for a single run
+    # store for animation
     value_history = {lmbd: [] for lmbd in lambda_values}
     
-    # First, do a single run for animation
+    # Running once for the animation
     print("Running single episode for animation...")
     for idx, lambda_val in enumerate(lambda_values):
         agent = CliffWalkerAgent(
@@ -150,14 +145,13 @@ def main():
                 else:
                     agent.update(observation, action, next_observation, None, reward, done)
             
-            # Store value function after each episode
+            # stores value function after each episode
             value_history[lambda_val].append(agent.get_value_function())
     
-    # Create a truncated version for the animation
     truncated_history = {lmbd: value_history[lmbd] for lmbd in lambda_values}
     create_animation(truncated_history, lambda_values)
     
-    # Now run multiple times for statistics
+    # running multiple times for the graph
     print("Running multiple episodes for statistics...")
     for run in tqdm(range(num_runs), desc="Runs"):
         for idx, lambda_val in enumerate(lambda_values):
@@ -190,13 +184,13 @@ def main():
 
                 all_returns[lambda_val][run, episode] = total_reward
 
-    # Average returns over runs for each episode and lambda
+    # average returns over runs for each episode and lambda
     avg_returns = {lmbd: np.mean(all_returns[lmbd], axis=0) for lmbd in lambda_values}
     std_returns = {lmbd: np.std(all_returns[lmbd], axis=0) for lmbd in lambda_values}
 
-    # Create combined plot with error shading
+    # combined plot
     plt.figure(figsize=(12, 8))
-    colors = ['blue', 'red', 'green']
+    colors = ['red', 'green', 'blue']
     
     for idx, lmbd in enumerate(lambda_values):
         episodes = np.arange(1, num_episodes + 1)
