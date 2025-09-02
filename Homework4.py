@@ -7,7 +7,9 @@
 import gymnasium as gym
 
 def main():
+    # set environment
     env = gym.make('CliffWalking-v0', render_mode="human")
+    # get observation from environment
     observation, info = env.reset()
     print(f"Starting observation: {observation}")
     total_reward = 0
