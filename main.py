@@ -8,8 +8,7 @@
 import numpy as np
 import gymnasium as gym
 import matplotlib.pyplot as plt
-from matplotlib.animation import FuncAnimation
-import seaborn as sns
+from matplotlib.animation import FuncAnimation, PillowWriter
 from tqdm import tqdm
 import warnings
 warnings.filterwarnings('ignore')
@@ -116,25 +115,41 @@ def run_experiment(lambdas, num_runs=100, num_episodes=200):
     
     return results
 
-def create_animation(value_functions_list, lambdas, filename='sarsa_lambda_animation.gif'):
-    fig, axes = plt.subplots(1, len(lambdas), figsize=(15, 5))
+def create_animation(value_history, lambda_values, filename="value_function_evolution.gif"):
+    # makes animation for runs
+    fig, axes = plt.subplots(1, len(lambda_values), figsize=(15, 5))
+    
+    # colour scaling
+    vmin = min(np.min(values) for values_list in value_history for values in values_list)
+    vmax = max(np.max(values) for values_list in value_history for values in values_list)
+    
+    # plots
+    ims = []
+    for idx, lmbd in enumerate(lambda_values):
+        im = axes[idx].imshow(value_history[idx][0], cmap='viridis', vmin=vmin, vmax=vmax)
+        axes[idx].set_title(f"λ = {lmbd} - Episode 1")
+        axes[idx].set_xlabel("Column")
+        axes[idx].set_ylabel("Row")
+        ims.append(im)
+        
+        plt.colorbar(im, ax=axes[idx])
+    
+    fig.suptitle("Value Function Evolution (V(s) = max_a Q(s, a))")
+    plt.tight_layout()
     
     def update(frame):
-        for i, lambda_val in enumerate(lambdas):
-            axes[i].clear()
-            sns.heatmap(value_functions_list[i][frame], ax=axes[i], 
-                       cmap='viridis', cbar=False, annot=False)
-            axes[i].set_title(f'λ = {lambda_val}\nEpisode {frame + 1}')
-            axes[i].set_xticks([])
-            axes[i].set_yticks([])
-        
-        fig.suptitle(f'SARSA(λ) Value Functions - Episode {frame + 1}', fontsize=16)
-        return axes
+        for idx, lmbd in enumerate(lambda_values):
+            ims[idx].set_array(value_history[idx][frame])
+            axes[idx].set_title(f"λ = {lmbd} - Episode {frame+1}")
+        return ims
     
-    anim = FuncAnimation(fig, update, frames=len(value_functions_list[0]), 
-                        interval=100, repeat=False)
-    anim.save(filename, writer='pillow', fps=10)
+    ani = FuncAnimation(fig, update, frames=len(value_history[lambda_values[0]]), 
+                        interval=200, blit=True)
+    
+    # save gif
+    ani.save(filename, writer=PillowWriter(fps=5), dpi=100)
     plt.close()
+    print(f"Animation saved as {filename}")
 
 def plot_average_returns(results, lambdas):
     plt.figure(figsize=(12, 8))
